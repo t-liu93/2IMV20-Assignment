@@ -48,7 +48,7 @@ public class VolumeIO {
             byte[] d = new byte[byteCount];
 
             if (stream.read(d) == byteCount) {
-                //System.out.println("read " + byteCount + " bytes");
+                System.out.println("read " + byteCount + " bytes");
             }
             
             data = new short[x_dim * y_dim * z_dim];

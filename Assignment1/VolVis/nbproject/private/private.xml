@@ -2,13 +2,6 @@
 <project-private xmlns="http://www.netbeans.org/ns/project-private/1">
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
-        <group>
-            <file>file:/C:/Users/liuti/Documents/NetbeansProject/2IMV25-Assignment/Assignment1/VolVis/src/util/VectorMath.java</file>
-            <file>file:/C:/Users/liuti/Documents/NetbeansProject/2IMV25-Assignment/Assignment1/VolVis/src/util/TrackballInteractor.java</file>
-            <file>file:/C:/Users/liuti/Documents/NetbeansProject/2IMV25-Assignment/Assignment1/VolVis/src/volvis/TFColor.java</file>
-            <file>file:/C:/Users/liuti/Documents/NetbeansProject/2IMV25-Assignment/Assignment1/VolVis/src/volvis/TransferFunction.java</file>
-            <file>file:/C:/Users/liuti/Documents/NetbeansProject/2IMV25-Assignment/Assignment1/VolVis/src/volvis/RaycastRenderer.java</file>
-            <file>file:/C:/Users/liuti/Documents/NetbeansProject/2IMV25-Assignment/Assignment1/VolVis/src/volume/GradientVolume.java</file>
-        </group>
+        <group/>
     </open-files>
 </project-private>
