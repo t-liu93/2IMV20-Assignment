@@ -16,6 +16,8 @@ import util.TFChangeListener;
 import util.VectorMath;
 import volume.GradientVolume;
 import volume.Volume;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 
 /**
  *
@@ -30,9 +32,14 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     TransferFunctionEditor tfEditor;
     TransferFunction2DEditor tfEditor2D;
     
+    //Variables for listeners
+    private String status;
+    
     public RaycastRenderer() {
         panel = new RaycastRendererPanel(this);
         panel.setSpeedLabel("0");
+        
+        status = "";
     }
 
     public void setVolume(Volume vol) {
@@ -98,11 +105,12 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     void slicer(double[] viewMatrix) {
 
         // clear image
-        for (int j = 0; j < image.getHeight(); j++) {
-            for (int i = 0; i < image.getWidth(); i++) {
-                image.setRGB(i, j, 0);
-            }
-        }
+//        for (int j = 0; j < image.getHeight(); j++) {
+//            for (int i = 0; i < image.getWidth(); i++) {
+//                image.setRGB(i, j, 0);
+//            }
+//        }
+        clearImage();
 
         // vector uVec and vVec define a plane through the origin, 
         // perpendicular to the view vector viewVec
@@ -156,6 +164,24 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         }
 
     }
+    
+    //MIP function
+    void MIP(double[] viewMatrix) {
+        //TODO
+        
+        //clear image
+        clearImage();
+    }
+    
+    //Compositing
+    void compositing(double[] viewMatrix) {
+        //TODO
+        
+        //clear image
+        clearImage();
+    }
+    
+    
 
 
     private void drawBoundingBox(GL2 gl) {
@@ -230,7 +256,19 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         gl.glGetDoublev(GL2.GL_MODELVIEW_MATRIX, viewMatrix, 0);
 
         long startTime = System.currentTimeMillis();
-        slicer(viewMatrix);    
+        
+        //Select main model
+        if (this.status == "slicer") {
+            slicer(viewMatrix);
+        } else if (this.status == "MIP") {
+            MIP(viewMatrix);
+        } else if (this.status == "compositing") {
+            compositing(viewMatrix);
+        } else if (this.status == "2DTrans") {
+            
+        }
+                
+//        slicer(viewMatrix);    
         
         long endTime = System.currentTimeMillis();
         double runningTime = (endTime - startTime);
@@ -279,6 +317,19 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     public void changed() {
         for (int i=0; i < listeners.size(); i++) {
             listeners.get(i).changed();
+        }
+    }
+    
+    //Supporting methods
+    public void setStatus(String status) {
+        this.status = status;
+    }
+    
+    private void clearImage() {
+        for (int j = 0; j < image.getHeight(); j++) {
+            for (int i = 0; i < image.getWidth(); i++) {
+                image.setRGB(i, j, 0);
+            }
         }
     }
 }
