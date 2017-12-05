@@ -39,7 +39,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         panel = new RaycastRendererPanel(this);
         panel.setSpeedLabel("0");
         
-        status = "";
+        status = "slicer";
     }
 
     public void setVolume(Volume vol) {
@@ -100,8 +100,58 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
 
         return volume.getVoxel(x, y, z);
     }
-
-
+    
+    //Tri-linear interpolation
+    //Algorithm on slide 2-7
+    //There is another algorithm mentioned at https://en.wikipedia.org/wiki/Trilinear_interpolation#Method
+    short getVoxelTriLinear(double[] coord) {
+        //Check validity
+        //Since ceiling can be out of bound, so here we set to max - 1
+        if (coord[0] < 0 || coord[0] > volume.getDimX() - 1 || coord[1] < 0 || coord[1] > volume.getDimY() - 1
+                || coord[2] < 0 || coord[2] > volume.getDimZ() - 1) {
+            return 0;
+        }
+        
+        //Calculate x0, y0, z0 and x1, y1, z1
+        int x0 = (int) Math.floor(coord[0]);
+        int y0 = (int) Math.floor(coord[1]);
+        int z0 = (int) Math.floor(coord[2]);
+        
+        int x1 = (int) Math.ceil(coord[0]);
+        int y1 = (int) Math.ceil(coord[1]);
+        int z1 = (int) Math.ceil(coord[2]);
+        
+        //Calculate the coefficiency alpha, beta and gamma
+        double alpha = (coord[0] - x0) / (x1 - x0);
+        double beta = (coord[1] - y0) / (y1 - y0);
+        double gamma = (coord[2] - z0) / (z1 - z0);
+        
+        //We need to get the 8 cxxx points according to wiki
+        //here 0 refers to x0, y0, z0 and 1 refers to x1, y1, z1
+        //And c000 refers to SX0, c100 refers to SX1...c111 refers to SX7 in slide
+        double c000 = volume.getVoxel(x0, y0, z0);
+        double c001 = volume.getVoxel(x0, y0, z1);
+        double c010 = volume.getVoxel(x0, y1, z0);
+        double c011 = volume.getVoxel(x0, y1, z1);
+        double c100 = volume.getVoxel(x1, y0, z0);
+        double c101 = volume.getVoxel(x1, y0, z1);
+        double c110 = volume.getVoxel(x1, y1, z0);
+        double c111 = volume.getVoxel(x1, y1, z1);
+        
+        //Calculate from formula in slide
+        
+        return (short) Math.round(
+                (1 - alpha) * (1 - beta) * (1 - gamma) * c000 +
+                alpha * (1 - beta) * (1 - gamma) * c100 +
+                (1 - alpha) * beta * (1 - gamma) * c010 +
+                alpha * beta * (1 - gamma) * c110 +
+                (1 - alpha) * (1 - beta) * gamma * c001 +
+                alpha * (1 - beta) * gamma * c101 + 
+                (1 - alpha) * beta * gamma * c011 + 
+                alpha * beta * gamma * c111
+        );  
+    }
+    
     void slicer(double[] viewMatrix) {
 
         // clear image
@@ -142,7 +192,9 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
                         + volumeCenter[2];
 
-                int val = getVoxel(pixelCoord);
+//                int val = getVoxel(pixelCoord); 
+                //No longer use getVoxel but getVoxelTriLinear
+                int val = getVoxelTriLinear(pixelCoord);
                 
                 // Map the intensity to a grey value by linear scaling
                 voxelColor.r = val/max;
@@ -160,6 +212,8 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 int c_blue = voxelColor.b <= 1.0 ? (int) Math.floor(voxelColor.b * 255) : 255;
                 int pixelColor = (c_alpha << 24) | (c_red << 16) | (c_green << 8) | c_blue;
                 image.setRGB(i, j, pixelColor);
+//                image.setRGB(i, j, -0x10000000);
+//                System.out.println("pixelcolor: " + pixelColor);
             }
         }
 
@@ -171,6 +225,56 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         
         //clear image
         clearImage();
+//        
+//        int scale = 2;
+//        // image is square
+//        int imageheight = image.getHeight()/scale;
+//        int imagewidth = image.getWidth()/scale;
+//        int imageCenter = image.getWidth()/2;   
+//
+//        // vector uVec and vVec define a plane through the origin, 
+//        // perpendicular to the view vector viewVec
+//        double[] viewVec = new double[3];
+//        double[] uVec = new double[3];
+//        double[] vVec = new double[3];
+//        VectorMath.setVector(viewVec, viewMatrix[2], viewMatrix[6], viewMatrix[10]);
+//        VectorMath.setVector(uVec, viewMatrix[0], viewMatrix[4], viewMatrix[8]);
+//        VectorMath.setVector(vVec, viewMatrix[1], viewMatrix[5], viewMatrix[9]);
+//
+//        double[] pixelCoord = new double[3];
+//        double[] volumeCenter = new double[3];
+//        VectorMath.setVector(volumeCenter, volume.getDimX() / 2, volume.getDimY() / 2, volume.getDimZ() / 2);
+//        
+//        // sample on a plane through the origin of the volume data
+//        int samplingDis = 2;
+//        for (int j = imageCenter - imageheight/2; j < imageheight/2 + imageCenter; j++) {
+//            for (int i = imageCenter - imagewidth/2; i < imagewidth/2 + imageCenter; i++) {
+//                int maxvalue = 0;
+//                for (int k = 0; k < volume.getDimZ(); k++){
+//                   pixelCoord[0] = uVec[0] * ((i - (imageCenter - imagewidth/2))*scale - imageCenter) + vVec[0] * ((j - (imageCenter - imageheight/2))*scale - imageCenter)
+//                        + volumeCenter[0] + k * samplingDis * viewVec[0];
+//                   pixelCoord[1] = uVec[1] * ((i - (imageCenter - imagewidth/2))*scale - imageCenter) + vVec[1] * ((j - (imageCenter - imageheight/2))*scale - imageCenter)
+//                        + volumeCenter[1] + k * samplingDis * viewVec[1];
+//                   pixelCoord[2] = uVec[2] * ((i - (imageCenter - imagewidth/2))*scale - imageCenter) + vVec[2] * ((j - (imageCenter - imageheight/2))*scale- imageCenter)
+//                        + volumeCenter[2] + k * samplingDis * viewVec[2];
+//                   int val = (int) triLinearGetVoxel(pixelCoord);
+//                   if(val > maxvalue ) maxvalue = val; //MIP
+//                   if(pixelCoord[2]>= volume.getDimZ()) break;
+//                }
+//                // Apply the transfer function to obtain a color
+// 
+//                TFColor voxelColor = tFunc.getColor(maxvalue);
+//				
+//                // BufferedImage expects a pixel color packed as ARGB in an int
+//                int c_alpha = voxelColor.a <= 1.0 ? (int) Math.floor(voxelColor.a * 255) : 255;
+//                int c_red = voxelColor.r <= 1.0 ? (int) Math.floor(voxelColor.r * 255) : 255;
+//                int c_green = voxelColor.g <= 1.0 ? (int) Math.floor(voxelColor.g * 255) : 255;
+//                int c_blue = voxelColor.b <= 1.0 ? (int) Math.floor(voxelColor.b * 255) : 255;
+//                
+//                int pixelColor = (c_alpha << 24) | (c_red << 16) | (c_green << 8) | c_blue;
+//                image.setRGB(i, j, pixelColor);
+//            }
+//        }
     }
     
     //Compositing
