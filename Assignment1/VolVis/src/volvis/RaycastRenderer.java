@@ -336,10 +336,75 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     
     //Compositing
     void compositing(double[] viewMatrix) {
-        //TODO
-        
-        //clear image
         clearImage();
+        // vector uVec and vVec define a plane through the origin, 
+        // perpendicular to the view vector viewVec
+        double[] viewVec = new double[3];
+        double[] uVec = new double[3];
+        double[] vVec = new double[3];
+        VectorMath.setVector(viewVec, viewMatrix[2], viewMatrix[6], viewMatrix[10]);
+        VectorMath.setVector(uVec, viewMatrix[0], viewMatrix[4], viewMatrix[8]);
+        VectorMath.setVector(vVec, viewMatrix[1], viewMatrix[5], viewMatrix[9]);
+
+        // image is square
+        int imageCenter = image.getWidth() / 2;
+
+        double[] pixelCoord = new double[3];
+        double[] volumeCenter = new double[3];
+        int diagonal = (int) Math.ceil(
+                    Math.sqrt((volume.getDimX() * volume.getDimX()) + (volume.getDimY() * volume.getDimY()) +
+                                (volume.getDimZ() * volume.getDimZ())));
+        VectorMath.setVector(volumeCenter, volume.getDimX() / 2, volume.getDimY() / 2, volume.getDimZ() / 2);
+
+        // sample on a plane through the origin of the volume data
+        double max = volume.getMaximum();
+        TFColor voxelColor = new TFColor();
+        int step;
+        
+        if (! interactiveMode) {
+            step = 1;
+        } else {
+            step = 30;
+        }
+        
+        for (int j = 0; j < image.getHeight(); j++) {
+            for (int i = 0; i < image.getWidth(); i++) {
+                double r = 0;
+                double g = 0;
+                double b = 0;  
+                for (int k = 0; k < diagonal; k += step) {
+                    pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
+                        + volumeCenter[0] + viewVec[0] * (k - (diagonal / 2));
+                    pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
+                        + volumeCenter[1] + viewVec[1] * (k - (diagonal / 2));
+                    pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
+                        + volumeCenter[2] + viewVec[2] * (k - (diagonal / 2));
+
+                    int val = getVoxelTriLinear(pixelCoord);
+                    // Get color via compositing function
+//                    voxelColor = new TFColor(0, 0, 0, 1);
+                    TFColor bkgColor = tFunc.getColor(val);
+                    r = (bkgColor.r * bkgColor.a) + ((1 - bkgColor.a) * r);
+                    g = (bkgColor.g * bkgColor.a) + ((1 - bkgColor.a) * g);
+                    b = (bkgColor.b * bkgColor.a) + ((1 - bkgColor.a) * b);
+
+                    voxelColor = new TFColor(r, g, b, 1);
+                }
+                
+                
+                
+                // BufferedImage expects a pixel color packed as ARGB in an int
+                int c_alpha = voxelColor.a <= 1.0 ? (int) Math.floor(voxelColor.a * 255) : 255;
+                int c_red = voxelColor.r <= 1.0 ? (int) Math.floor(voxelColor.r * 255) : 255;
+                int c_green = voxelColor.g <= 1.0 ? (int) Math.floor(voxelColor.g * 255) : 255;
+                int c_blue = voxelColor.b <= 1.0 ? (int) Math.floor(voxelColor.b * 255) : 255;
+                int pixelColor = (c_alpha << 24) | (c_red << 16) | (c_green << 8) | c_blue;
+                image.setRGB(i, j, pixelColor);
+//                image.setRGB(i, j, -0x10000000);
+//                System.out.println("pixelcolor: " + pixelColor);
+            }
+        }
+        
     }
     
     //2D Transfer function
