@@ -16,6 +16,7 @@ import util.TFChangeListener;
 import util.VectorMath;
 import volume.GradientVolume;
 import volume.Volume;
+import volume.VoxelGradient;
 
 /**
  *
@@ -364,7 +365,67 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         double[] volumeCenter = new double[3];
         VectorMath.setVector(volumeCenter, volume.getDimX() / 2, volume.getDimY() / 2, volume.getDimZ() / 2);
         
+        TFColor voxelColor = new TFColor();
         
+        //Specific pixelCoord for slicer
+        double[] pixelCoordSlicer = new double[3];
+        
+        //From the widget we have intensity, radius and opacity, as well as color
+        //So we get the data first from the widget
+        //Looks like TransferFunction2DEditor.trangleWidget.baseIntensity refers to indensity
+        //radius refers to radius and color refers to color set
+//        System.out.println("intensity: " + tfEditor2D.triangleWidget.baseIntensity);
+        int setIntensity = tfEditor2D.triangleWidget.getIntensity();
+        double radius = tfEditor2D.triangleWidget.getRadius();
+        TFColor color = tfEditor2D.triangleWidget.getColor();
+//        System.out.println("color: " + color.toString());
+
+        double opacity = 1;
+        double voxelOpacity;
+        
+        //We start with normal slicer
+        for (int j = 0; j < imageHeight; j ++) {
+            for (int i = 0 ; i < imageWidth; i ++) {
+                voxelColor = color;
+                //Basic slicer coord, center
+                pixelCoordSlicer[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
+                        + volumeCenter[0];
+                pixelCoordSlicer[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
+                        + volumeCenter[1];
+                pixelCoordSlicer[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
+                        + volumeCenter[2];
+                
+                for (int k = 0; k < MIPSlices; k ++) {
+                    pixelCoord[0] = pixelCoordSlicer[0] + k * MIPSliceStep * viewVec[0];
+                    pixelCoord[1] = pixelCoordSlicer[1] + k * MIPSliceStep * viewVec[1];
+                    pixelCoord[2] = pixelCoordSlicer[2] + k * MIPSliceStep * viewVec[2];
+                    
+                    int val = getVoxelTriLinear(pixelCoord);
+                    
+                    //Calculate 2D transfer
+                    if (pixelCoord[0] < volume.getDimX() && pixelCoord[0] >= 0 &&
+                            pixelCoord[1] < volume.getDimY() && pixelCoord[1] >= 0 &&
+                            pixelCoord[2] < volume.getDimZ() && pixelCoord[2] >= 0) {
+                        voxelOpacity = calculateOpacity(pixelCoord, val, setIntensity, radius, color.a);
+                        //Apply the product function, first step
+                        opacity *= 1 - voxelOpacity;
+                    }
+                }
+                
+                //Apply the rest part
+                voxelColor.a = 1 - opacity;
+                
+                // BufferedImage expects a pixel color packed as ARGB in an int
+                int c_alpha = voxelColor.a <= 1.0 ? (int) Math.floor(voxelColor.a * 255) : 255;
+                int c_red = voxelColor.r <= 1.0 ? (int) Math.floor(voxelColor.r * 255) : 255;
+                int c_green = voxelColor.g <= 1.0 ? (int) Math.floor(voxelColor.g * 255) : 255;
+                int c_blue = voxelColor.b <= 1.0 ? (int) Math.floor(voxelColor.b * 255) : 255;
+                int pixelColor = (c_alpha << 24) | (c_red << 16) | (c_green << 8) | c_blue;
+                image.setRGB(i, j, pixelColor);
+//                image.setRGB(i, j, -0x10000000);
+//                System.out.println("pixelcolor: " + pixelColor);
+            }
+        }
     }
     
     private void drawBoundingBox(GL2 gl) {
@@ -515,4 +576,26 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
             }
         }
     }
+    
+    private double calculateOpacity(double[] pixelCoord, int voxelIntensity, int setIntensity, double radius, double alpha) {
+        
+        //Calculate gradientMagn
+        VoxelGradient voxelGradient = gradients.getGradient((int) Math.floor(pixelCoord[0]), 
+                (int) Math.floor(pixelCoord[1]), 
+                (int) Math.floor(pixelCoord[2]));
+        
+        //Apply Levoy's equation 3
+        //gradientMagn is mag of voxelGradient
+        if (Math.abs(voxelGradient.mag) == 0 && voxelIntensity == setIntensity) {
+            return 1;
+        } else if (Math.abs(voxelGradient.mag) > 0 && 
+                voxelIntensity - radius * Math.abs(voxelGradient.mag) <= setIntensity && 
+                setIntensity <= voxelIntensity + radius * Math.abs(voxelGradient.mag)) {
+            return alpha * (1 - (1 / radius * Math.abs((setIntensity - voxelIntensity) / 
+                                                            Math.abs(voxelGradient.mag))));
+        } else {
+            return 0;
+        }
+    }
+    
 }

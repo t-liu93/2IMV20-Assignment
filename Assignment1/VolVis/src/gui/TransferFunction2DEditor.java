@@ -297,6 +297,18 @@ public class TransferFunction2DEditor extends javax.swing.JPanel {
             this.radius = r;
             this.color = new TFColor(0.0, 204.0/255.0, 153.0/255.0, 0.3);
         }
+        
+        public short getIntensity() {
+            return this.baseIntensity;
+        }
+        
+        public double getRadius() {
+            return this.radius;
+        }
+        
+        public TFColor getColor() {
+            return this.color;
+        }
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

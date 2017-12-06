@@ -4,8 +4,9 @@
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
             <file>file:/D:/Documents/NetbeansProjects/2IMV20-Assignment/Assignment1/VolVis/src/volvis/RaycastRenderer.java</file>
-            <file>file:/D:/Documents/NetbeansProjects/2IMV20-Assignment/Assignment1/VolVis/src/gui/RaycastRendererPanel.java</file>
+            <file>file:/D:/Documents/NetbeansProjects/2IMV20-Assignment/Assignment1/VolVis/src/volume/GradientVolume.java</file>
             <file>file:/D:/Documents/NetbeansProjects/2IMV20-Assignment/Assignment1/VolVis/src/volvis/Visualization.java</file>
+            <file>file:/D:/Documents/NetbeansProjects/2IMV20-Assignment/Assignment1/VolVis/src/volume/VoxelGradient.java</file>
             <file>file:/D:/Documents/NetbeansProjects/2IMV20-Assignment/Assignment1/VolVis/src/volvis/Renderer.java</file>
             <file>file:/D:/Documents/NetbeansProjects/2IMV20-Assignment/Assignment1/VolVis/src/volume/Volume.java</file>
         </group>
