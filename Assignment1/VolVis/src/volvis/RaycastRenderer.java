@@ -341,9 +341,32 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         clearImage();
     }
     
+    //2D Transfer function
+    void transfer2D(double[] viewMatrix) {
+        //clear image
+        clearImage();
+        
+        // vector uVec and vVec define a plane through the origin, 
+        // perpendicular to the view vector viewVec
+        double[] viewVec = new double[3];
+        double[] uVec = new double[3];
+        double[] vVec = new double[3];
+        VectorMath.setVector(viewVec, viewMatrix[2], viewMatrix[6], viewMatrix[10]);
+        VectorMath.setVector(uVec, viewMatrix[0], viewMatrix[4], viewMatrix[8]);
+        VectorMath.setVector(vVec, viewMatrix[1], viewMatrix[5], viewMatrix[9]);
+        
+        // image is square
+        int imageCenter = image.getWidth() / 2;
+        int imageWidth = image.getWidth();
+        int imageHeight = image.getHeight();
+        
+        double[] pixelCoord = new double[3];
+        double[] volumeCenter = new double[3];
+        VectorMath.setVector(volumeCenter, volume.getDimX() / 2, volume.getDimY() / 2, volume.getDimZ() / 2);
+        
+        
+    }
     
-
-
     private void drawBoundingBox(GL2 gl) {
         gl.glPushAttrib(GL2.GL_CURRENT_BIT);
         gl.glDisable(GL2.GL_LIGHTING);
@@ -425,7 +448,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         } else if (this.status.equalsIgnoreCase("compositing")) {
             compositing(viewMatrix);
         } else if (this.status.equalsIgnoreCase("2DTrans")) {
-            
+            transfer2D(viewMatrix);
         }
                 
 //        slicer(viewMatrix);    

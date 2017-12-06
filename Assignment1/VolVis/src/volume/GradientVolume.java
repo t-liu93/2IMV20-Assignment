@@ -55,6 +55,20 @@ public class GradientVolume {
         for (int i=0; i<data.length; i++) {
             data[i] = zero;
         }
+        
+        //We use the formula of slide 2-24 to calculate the gradient of a volume
+        //The calculation iterate over all x, y, z coordinates,
+        //and we use the given setGradient to set value to the corresponding point
+        for (int x = 0; x < getDimX(); x ++) {
+            for (int y = 0; y < getDimY(); y ++) {
+                for (int z = 0; z < getDimZ(); z ++) {
+                    setGradient(x, y, z, 
+                            new VoxelGradient((volume.getVoxel(x + 1, y, z) - volume.getVoxel(x - 1, y, z)) / 2, 
+                            (volume.getVoxel(x, y + 1, z) - volume.getVoxel(x, y - 1, z)) / 2, 
+                            (volume.getVoxel(x, y, z + 1) - volume.getVoxel(x, y, z - 1)) / 2));
+                }
+            }
+        }
                 
     }
     
