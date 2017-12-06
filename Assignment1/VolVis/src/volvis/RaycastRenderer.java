@@ -35,6 +35,15 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     //Variables for listeners
     private String status;
     
+    //Control variables for MIP
+    private int MIPSlices = 50; //The number of slices will be checked in MIP mode apart from the center slice
+    //More slices will give a more precise visualization, but it is slower.
+    //Dafault 50
+    private int MIPSliceStep = 1; //Each time when checking another slice, the step to be applied on the previous one
+    //The small step may give a more precise visualization but it is very slow. 
+    //Default 1
+    
+    //Constructors    
     public RaycastRenderer() {
         panel = new RaycastRendererPanel(this);
         panel.setSpeedLabel("0");
@@ -197,12 +206,12 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 int val = getVoxelTriLinear(pixelCoord);
                 
                 // Map the intensity to a grey value by linear scaling
-                voxelColor.r = val/max;
-                voxelColor.g = voxelColor.r;
-                voxelColor.b = voxelColor.r;
-                voxelColor.a = val > 0 ? 1.0 : 0.0;  // this makes intensity 0 completely transparent and the rest opaque
+//                voxelColor.r = val/max;
+//                voxelColor.g = voxelColor.r;
+//                voxelColor.b = voxelColor.r;
+//                voxelColor.a = val > 0 ? 1.0 : 0.0;  // this makes intensity 0 completely transparent and the rest opaque
                 // Alternatively, apply the transfer function to obtain a color
-                // voxelColor = tFunc.getColor(val);
+                 voxelColor = tFunc.getColor(val);
                 
                 
                 // BufferedImage expects a pixel color packed as ARGB in an int
@@ -220,61 +229,93 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     }
     
     //MIP function
+    //MIP is an extension of slicer
+    //Slicer calculates the sum of St and MIP find tha max of it. 
+    //So this method uses the structure of slicer
+    //Another supplement method is added for calculating max st
     void MIP(double[] viewMatrix) {
-        //TODO
         
         //clear image
         clearImage();
-//        
-//        int scale = 2;
-//        // image is square
-//        int imageheight = image.getHeight()/scale;
-//        int imagewidth = image.getWidth()/scale;
-//        int imageCenter = image.getWidth()/2;   
-//
-//        // vector uVec and vVec define a plane through the origin, 
-//        // perpendicular to the view vector viewVec
-//        double[] viewVec = new double[3];
-//        double[] uVec = new double[3];
-//        double[] vVec = new double[3];
-//        VectorMath.setVector(viewVec, viewMatrix[2], viewMatrix[6], viewMatrix[10]);
-//        VectorMath.setVector(uVec, viewMatrix[0], viewMatrix[4], viewMatrix[8]);
-//        VectorMath.setVector(vVec, viewMatrix[1], viewMatrix[5], viewMatrix[9]);
-//
-//        double[] pixelCoord = new double[3];
-//        double[] volumeCenter = new double[3];
-//        VectorMath.setVector(volumeCenter, volume.getDimX() / 2, volume.getDimY() / 2, volume.getDimZ() / 2);
-//        
-//        // sample on a plane through the origin of the volume data
-//        int samplingDis = 2;
-//        for (int j = imageCenter - imageheight/2; j < imageheight/2 + imageCenter; j++) {
-//            for (int i = imageCenter - imagewidth/2; i < imagewidth/2 + imageCenter; i++) {
-//                int maxvalue = 0;
-//                for (int k = 0; k < volume.getDimZ(); k++){
-//                   pixelCoord[0] = uVec[0] * ((i - (imageCenter - imagewidth/2))*scale - imageCenter) + vVec[0] * ((j - (imageCenter - imageheight/2))*scale - imageCenter)
-//                        + volumeCenter[0] + k * samplingDis * viewVec[0];
-//                   pixelCoord[1] = uVec[1] * ((i - (imageCenter - imagewidth/2))*scale - imageCenter) + vVec[1] * ((j - (imageCenter - imageheight/2))*scale - imageCenter)
-//                        + volumeCenter[1] + k * samplingDis * viewVec[1];
-//                   pixelCoord[2] = uVec[2] * ((i - (imageCenter - imagewidth/2))*scale - imageCenter) + vVec[2] * ((j - (imageCenter - imageheight/2))*scale- imageCenter)
-//                        + volumeCenter[2] + k * samplingDis * viewVec[2];
-//                   int val = (int) triLinearGetVoxel(pixelCoord);
-//                   if(val > maxvalue ) maxvalue = val; //MIP
-//                   if(pixelCoord[2]>= volume.getDimZ()) break;
-//                }
-//                // Apply the transfer function to obtain a color
-// 
-//                TFColor voxelColor = tFunc.getColor(maxvalue);
-//				
-//                // BufferedImage expects a pixel color packed as ARGB in an int
-//                int c_alpha = voxelColor.a <= 1.0 ? (int) Math.floor(voxelColor.a * 255) : 255;
-//                int c_red = voxelColor.r <= 1.0 ? (int) Math.floor(voxelColor.r * 255) : 255;
-//                int c_green = voxelColor.g <= 1.0 ? (int) Math.floor(voxelColor.g * 255) : 255;
-//                int c_blue = voxelColor.b <= 1.0 ? (int) Math.floor(voxelColor.b * 255) : 255;
-//                
-//                int pixelColor = (c_alpha << 24) | (c_red << 16) | (c_green << 8) | c_blue;
-//                image.setRGB(i, j, pixelColor);
-//            }
-//        }
+        
+        // vector uVec and vVec define a plane through the origin, 
+        // perpendicular to the view vector viewVec
+        double[] viewVec = new double[3];
+        double[] uVec = new double[3];
+        double[] vVec = new double[3];
+        VectorMath.setVector(viewVec, viewMatrix[2], viewMatrix[6], viewMatrix[10]);
+        VectorMath.setVector(uVec, viewMatrix[0], viewMatrix[4], viewMatrix[8]);
+        VectorMath.setVector(vVec, viewMatrix[1], viewMatrix[5], viewMatrix[9]);
+        
+        // image is square
+        int imageCenter = image.getWidth() / 2;
+        int imageWidth = image.getWidth();
+        int imageHeight = image.getHeight();
+
+        double[] pixelCoord = new double[3];
+        double[] volumeCenter = new double[3];
+        VectorMath.setVector(volumeCenter, volume.getDimX() / 2, volume.getDimY() / 2, volume.getDimZ() / 2);
+        
+        // sample on a plane through the origin of the volume data
+        double max = volume.getMaximum();
+        TFColor voxelColor = new TFColor();
+
+        
+        for (int j = 0; j < image.getHeight(); j++) {
+            for (int i = 0; i < image.getWidth(); i++) {
+                //Max needed
+                int maxVal = 0;
+                //Basic slicer coord
+                pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
+                    + volumeCenter[0];
+                pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
+                    + volumeCenter[1];
+                pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
+                    + volumeCenter[2];
+                
+                //calculate the other slices 
+                //Here the max k should be limited to a number.
+                //In principle, we should use either width or height for more slices.
+                //However, it is too slow, here we hard code a number. 
+                for (int k = 0; k < MIPSlices; k ++) {
+                    pixelCoord[0] += k * MIPSliceStep * viewVec[0];
+                    pixelCoord[1] += k * MIPSliceStep * viewVec[1];
+                    pixelCoord[2] += k * MIPSliceStep * viewVec[2];
+                            
+//                    int val = getVoxel(pixelCoord); 
+                    //No longer use getVoxel but getVoxelTriLinear
+                    int val = getVoxelTriLinear(pixelCoord);
+                    //Check maxVal
+                    if (val > maxVal) {
+                        maxVal = val;
+                    }
+                }
+//               
+                
+                // Map the intensity to a grey value by linear scaling
+//                voxelColor.r = val/max;
+//                voxelColor.r = maxVal / max;
+//                voxelColor.g = voxelColor.r;
+//                voxelColor.b = voxelColor.r;
+//                voxelColor.a = val > 0 ? 1.0 : 0.0;  // this makes intensity 0 completely transparent and the rest opaque
+//                voxelColor.a = maxVal > 0 ? 1.0 : 0.0;
+                // Alternatively, apply the transfer function to obtain a color
+                // voxelColor = tFunc.getColor(val);
+                //We use tFunc.getColor to get color on maxVal
+                voxelColor = tFunc.getColor(maxVal);
+                
+                
+                // BufferedImage expects a pixel color packed as ARGB in an int
+                int c_alpha = voxelColor.a <= 1.0 ? (int) Math.floor(voxelColor.a * 255) : 255;
+                int c_red = voxelColor.r <= 1.0 ? (int) Math.floor(voxelColor.r * 255) : 255;
+                int c_green = voxelColor.g <= 1.0 ? (int) Math.floor(voxelColor.g * 255) : 255;
+                int c_blue = voxelColor.b <= 1.0 ? (int) Math.floor(voxelColor.b * 255) : 255;
+                int pixelColor = (c_alpha << 24) | (c_red << 16) | (c_green << 8) | c_blue;
+                image.setRGB(i, j, pixelColor);
+//                image.setRGB(i, j, -0x10000000);
+//                System.out.println("pixelcolor: " + pixelColor);
+            }
+        }
     }
     
     //Compositing
