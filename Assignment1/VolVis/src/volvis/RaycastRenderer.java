@@ -16,8 +16,6 @@ import util.TFChangeListener;
 import util.VectorMath;
 import volume.GradientVolume;
 import volume.Volume;
-import java.awt.event.ActionListener;
-import java.awt.event.ActionEvent;
 
 /**
  *
@@ -256,31 +254,47 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         double[] volumeCenter = new double[3];
         VectorMath.setVector(volumeCenter, volume.getDimX() / 2, volume.getDimY() / 2, volume.getDimZ() / 2);
         
+        //Specific pixelCoord for slicer
+        double[] pixelCoordSlicer = new double[3];
+        
         // sample on a plane through the origin of the volume data
-        double max = volume.getMaximum();
+//        double max = volume.getMaximum();
         TFColor voxelColor = new TFColor();
+        
+        //We should also take mouse interaction into account
+        //When pulling the image, it can be rendered in low resolution
+        //When static, it can render in high resolution.
+        //This can be changed by changing the MIPSlices and MIPSliceStep
+        if (! interactiveMode) {
+            MIPSlices = Math.max(imageWidth, imageHeight);
+            MIPSliceStep = 1;
+        } else {
+            MIPSlices = 20;
+            MIPSliceStep = 10;
+        }
 
         
-        for (int j = 0; j < image.getHeight(); j++) {
-            for (int i = 0; i < image.getWidth(); i++) {
+        for (int j = 1; j < imageHeight; j ++) {
+            for (int i = 1; i < imageWidth; i ++) {
                 //Max needed
                 int maxVal = 0;
-                //Basic slicer coord
-                pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
-                    + volumeCenter[0];
-                pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
-                    + volumeCenter[1];
-                pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
-                    + volumeCenter[2];
+                //Basic slicer coord, center
+                pixelCoordSlicer[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
+                        + volumeCenter[0];
+                pixelCoordSlicer[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
+                        + volumeCenter[1];
+                pixelCoordSlicer[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
+                        + volumeCenter[2];
                 
                 //calculate the other slices 
                 //Here the max k should be limited to a number.
                 //In principle, we should use either width or height for more slices.
                 //However, it is too slow, here we hard code a number. 
                 for (int k = 0; k < MIPSlices; k ++) {
-                    pixelCoord[0] += k * MIPSliceStep * viewVec[0];
-                    pixelCoord[1] += k * MIPSliceStep * viewVec[1];
-                    pixelCoord[2] += k * MIPSliceStep * viewVec[2];
+                    pixelCoord[0] = pixelCoordSlicer[0] + k * MIPSliceStep * viewVec[0];
+                    pixelCoord[1] = pixelCoordSlicer[1] + k * MIPSliceStep * viewVec[1];
+                    pixelCoord[2] = pixelCoordSlicer[2] + k * MIPSliceStep * viewVec[2];
+                    //old += does not work here, because the original pixelCoord will be added many times
                             
 //                    int val = getVoxel(pixelCoord); 
                     //No longer use getVoxel but getVoxelTriLinear
@@ -289,6 +303,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                     if (val > maxVal) {
                         maxVal = val;
                     }
+                    if(pixelCoord[2]>= volume.getDimZ()) break;
                 }
 //               
                 
@@ -403,13 +418,13 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         long startTime = System.currentTimeMillis();
         
         //Select main model
-        if (this.status == "slicer") {
+        if (this.status.equalsIgnoreCase("slicer")) {
             slicer(viewMatrix);
-        } else if (this.status == "MIP") {
+        } else if (this.status.equalsIgnoreCase("MIP")) {
             MIP(viewMatrix);
-        } else if (this.status == "compositing") {
+        } else if (this.status.equalsIgnoreCase("compositing")) {
             compositing(viewMatrix);
-        } else if (this.status == "2DTrans") {
+        } else if (this.status.equalsIgnoreCase("2DTrans")) {
             
         }
                 
