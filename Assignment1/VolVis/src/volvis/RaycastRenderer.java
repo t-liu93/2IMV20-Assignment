@@ -26,6 +26,11 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
 
     private Volume volume = null;
     private GradientVolume gradients = null;
+    private boolean shadeOn = false;
+    private static final double Ia = 0.1;
+    private static final double kdiff = 0.7;
+    private static final double kspec = 0.2;
+    private static final int a = 10;
     RaycastRendererPanel panel;
     TransferFunction tFunc;
     TransferFunctionEditor tfEditor;
@@ -445,12 +450,21 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         TFColor color = tfEditor2D.triangleWidget.getColor();
 //        System.out.println("color: " + color.toString());
 
-        double opacity = 1;
+//        double opacity = 1;
         double voxelOpacity;
+        
+        if (! interactiveMode) {
+            MIPSlices = Math.max(imageWidth, imageHeight);
+            MIPSliceStep = 1;
+        } else {
+            MIPSlices = 20;
+            MIPSliceStep = 10;
+        }
         
         //We start with normal slicer
         for (int j = 0; j < imageHeight; j ++) {
             for (int i = 0 ; i < imageWidth; i ++) {
+                double opacity = 1;
                 voxelColor = color;
                 //Basic slicer coord, center
                 pixelCoordSlicer[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
@@ -466,12 +480,16 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                     pixelCoord[2] = pixelCoordSlicer[2] + k * MIPSliceStep * viewVec[2];
                     
                     int val = getVoxelTriLinear(pixelCoord);
+//                    int val = getVoxel2(pixelCoord);
                     
                     //Calculate 2D transfer
                     if (pixelCoord[0] < volume.getDimX() && pixelCoord[0] >= 0 &&
                             pixelCoord[1] < volume.getDimY() && pixelCoord[1] >= 0 &&
                             pixelCoord[2] < volume.getDimZ() && pixelCoord[2] >= 0) {
-                        voxelOpacity = calculateOpacity(pixelCoord, val, setIntensity, radius, color.a);
+                        voxelOpacity = calculateOpacity(pixelCoord, val, setIntensity, radius, opacity);
+                        if (shadeOn && voxelOpacity > 0) {
+                            voxelColor = phoneShading(viewVec, pixelCoord, new TFColor(color.r, color.g, color.b, color.a));
+                        }
                         //Apply the product function, first step
                         opacity *= 1 - voxelOpacity;
                     }
@@ -634,6 +652,11 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         this.status = status;
     }
     
+    public void toggleShading() {
+        this.shadeOn = !shadeOn;
+//        System.out.println(shadeOn);
+    }
+    
     private void clearImage() {
         for (int j = 0; j < image.getHeight(); j++) {
             for (int i = 0; i < image.getWidth(); i++) {
@@ -649,8 +672,14 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 (int) Math.floor(pixelCoord[1]), 
                 (int) Math.floor(pixelCoord[2]));
         
+        
         //Apply Levoy's equation 3
         //gradientMagn is mag of voxelGradient
+        
+        if (Math.abs(voxelGradient.mag) > gradients.getMaxGradientMagnitude()) {
+            return 0.0;
+        }
+        
         if (Math.abs(voxelGradient.mag) == 0 && voxelIntensity == setIntensity) {
             return 1;
         } else if (Math.abs(voxelGradient.mag) > 0 && 
@@ -661,6 +690,50 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         } else {
             return 0;
         }
+    }
+    
+    // simplified phone shading with L = V
+    //Ia = 0.1, kdiff = 0.7, kspec = 0.2, a = 10
+    //I = Ia + Id * kdiff * (L * N) + kspec * (N * H)^a
+    private TFColor phoneShading (double[] view, double[] pixelCoord, TFColor color) {
+        //Calculate gradientMagn
+        VoxelGradient voxelGradient = gradients.getGradient((int) Math.floor(pixelCoord[0]), 
+                (int) Math.floor(pixelCoord[1]), 
+                (int) Math.floor(pixelCoord[2]));
+        //Normalize the gradient for N
+        double[] N = new double[3];
+        double gradientLength = Math.sqrt(voxelGradient.x * voxelGradient.x +
+                voxelGradient.y * voxelGradient.y + voxelGradient.z * voxelGradient.z);
+        VectorMath.setVector(N, voxelGradient.x / gradientLength,
+                                    voxelGradient.y / gradientLength,
+                                    voxelGradient.z / gradientLength);
+        //Make the viewVec point away from the surface
+        double[] viewVector = {-view[0], -view[1], -view[2]};
+        double viewVectorLength = VectorMath.length(viewVector);
+        VectorMath.setVector(viewVector, viewVector[0] / viewVectorLength
+        		, viewVector[1] / viewVectorLength, viewVector[2] / viewVectorLength);
+        //Calculate new color
+        TFColor newColor = new TFColor();
+        double lnProduct = VectorMath.dotproduct(viewVector, N);
+        
+        if (lnProduct <= 0) {
+            return color;
+        }
+        else {
+        	double[] H = new double[3];
+                H[0] = viewVector[0] / Math.abs(viewVector[0]);
+                H[1] = viewVector[1] / Math.abs(viewVector[1]);
+                H[2] = viewVector[2] / Math.abs(viewVector[2]);  
+
+                newColor.a = color.a;
+//        	double temp = Ia + kspec * Math.pow(VectorMath.dotproduct(N, H), a);     //my version           
+                double temp = Ia + kspec * Math.pow(lnProduct, a); //working version
+        	newColor.r = color.r * kdiff * lnProduct + temp;
+        	newColor.g = color.g * kdiff * lnProduct + temp;
+        	newColor.b = color.b * kdiff * lnProduct + temp;
+
+        }
+    	return newColor;
     }
     
 }
