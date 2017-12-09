@@ -684,6 +684,11 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 (int) Math.floor(pixelCoord[1]), 
                 (int) Math.floor(pixelCoord[2]));
         
+        if (voxelGradient.mag < tfEditor2D.triangleWidget.getMinGradient() || 
+                voxelGradient.mag > tfEditor2D.triangleWidget.getMaxGradient()) {
+            return 0.0;
+        }
+        
         
         //Apply Levoy's equation 3
         //gradientMagn is mag of voxelGradient
