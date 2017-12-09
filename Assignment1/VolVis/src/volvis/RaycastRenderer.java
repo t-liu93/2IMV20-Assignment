@@ -726,28 +726,36 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                                     voxelGradient.z / gradientLength);
         //Make the viewVec point away from the surface
         double[] viewVector = {-view[0], -view[1], -view[2]};
-        double viewVectorLength = VectorMath.length(viewVector);
-        VectorMath.setVector(viewVector, viewVector[0] / viewVectorLength
-        		, viewVector[1] / viewVectorLength, viewVector[2] / viewVectorLength);
+//        double viewVectorLength = VectorMath.length(viewVector);
+        
+        //L = V
+        //L + V is two V
+        double[] LPlusV = new double[3];
+        VectorMath.setVector(LPlusV, viewVector[0] * 2, viewVector[1] * 2, viewVector[2] * 2);
+        
+        double LPlusVLength = VectorMath.length(LPlusV);
+
+        //halfway vector
+        double[] H = new double[3];
+        H[0] = LPlusV[0] / LPlusVLength;
+        H[1] = LPlusV[1] / LPlusVLength;
+        H[2] = LPlusV[2] / LPlusVLength;
+        
+        double lDotN = VectorMath.dotproduct(viewVector, N);
+        double hDotN = VectorMath.dotproduct(H, N);
+        
         //Calculate new color
         TFColor newColor = new TFColor();
-        double lnProduct = VectorMath.dotproduct(viewVector, N);
-        
-        if (lnProduct <= 0) {
+
+        if (lDotN <= 0) {
             return color;
         }
         else {
-        	double[] H = new double[3];
-                H[0] = viewVector[0] / Math.abs(viewVector[0]);
-                H[1] = viewVector[1] / Math.abs(viewVector[1]);
-                H[2] = viewVector[2] / Math.abs(viewVector[2]);  
-
                 newColor.a = color.a;
-//        	double temp = Ia + kspec * Math.pow(VectorMath.dotproduct(N, H), a);     //old version           
-                double temp = Ia + kspec * Math.pow(lnProduct, a); //working version
-        	newColor.r = color.r * kdiff * lnProduct + temp;
-        	newColor.g = color.g * kdiff * lnProduct + temp;
-        	newColor.b = color.b * kdiff * lnProduct + temp;
+        	double temp = Ia + kspec * Math.pow(hDotN, a);
+        	newColor.r = color.r * kdiff * lDotN + temp;
+        	newColor.g = color.g * kdiff * lDotN + temp;
+        	newColor.b = color.b * kdiff * lDotN + temp;
 
         }
     	return newColor;
