@@ -255,6 +255,9 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         int imageCenter = image.getWidth() / 2;
         int imageWidth = image.getWidth();
         int imageHeight = image.getHeight();
+        int diagonal = (int) Math.ceil(
+                    Math.sqrt((volume.getDimX() * volume.getDimX()) + (volume.getDimY() * volume.getDimY()) +
+                                (volume.getDimZ() * volume.getDimZ())));
 
         double[] pixelCoord = new double[3];
         double[] volumeCenter = new double[3];
@@ -272,11 +275,9 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         //When static, it can render in high resolution.
         //This can be changed by changing the MIPSlices and MIPSliceStep
         if (! interactiveMode) {
-            MIPSlices = Math.max(imageWidth, imageHeight);
             MIPSliceStep = 1;
         } else {
-            MIPSlices = 20;
-            MIPSliceStep = 10;
+            MIPSliceStep = 50;
         }
 
         
@@ -296,10 +297,10 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 //Here the max k should be limited to a number.
                 //In principle, we should use either width or height for more slices.
                 //However, it is too slow, here we hard code a number. 
-                for (int k = 0; k < MIPSlices; k ++) {
-                    pixelCoord[0] = pixelCoordSlicer[0] + k * MIPSliceStep * viewVec[0];
-                    pixelCoord[1] = pixelCoordSlicer[1] + k * MIPSliceStep * viewVec[1];
-                    pixelCoord[2] = pixelCoordSlicer[2] + k * MIPSliceStep * viewVec[2];
+                for (int k = 0; k < diagonal; k += MIPSliceStep) {
+                    pixelCoord[0] = pixelCoordSlicer[0] + (k - (diagonal / 2)) * viewVec[0];
+                    pixelCoord[1] = pixelCoordSlicer[1] + (k - (diagonal / 2)) * viewVec[1];
+                    pixelCoord[2] = pixelCoordSlicer[2] + (k - (diagonal / 2)) * viewVec[2];
                     //old += does not work here, because the original pixelCoord will be added many times
                             
 //                    int val = getVoxel(pixelCoord); 
@@ -309,7 +310,6 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                     if (val > maxVal) {
                         maxVal = val;
                     }
-                    if(pixelCoord[2]>= volume.getDimZ()) break;
                 }
 //               
                 
@@ -353,6 +353,8 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
 
         // image is square
         int imageCenter = image.getWidth() / 2;
+        int imageWidth = image.getWidth();
+        int imageHeight = image.getHeight();
 
         double[] pixelCoord = new double[3];
         double[] volumeCenter = new double[3];
@@ -360,30 +362,37 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                     Math.sqrt((volume.getDimX() * volume.getDimX()) + (volume.getDimY() * volume.getDimY()) +
                                 (volume.getDimZ() * volume.getDimZ())));
         VectorMath.setVector(volumeCenter, volume.getDimX() / 2, volume.getDimY() / 2, volume.getDimZ() / 2);
+        
+        //Specific pixelCoord for slicer
+        double[] pixelCoordSlicer = new double[3];
 
         // sample on a plane through the origin of the volume data
-        double max = volume.getMaximum();
+//        double max = volume.getMaximum();
         TFColor voxelColor = new TFColor();
         int step;
         
         if (! interactiveMode) {
             step = 1;
         } else {
-            step = 30;
+            step = 50;
         }
         
-        for (int j = 0; j < image.getHeight(); j++) {
-            for (int i = 0; i < image.getWidth(); i++) {
+        for (int j = 0; j < imageHeight; j++) {
+            for (int i = 0; i < imageWidth; i++) {
                 double r = 0;
                 double g = 0;
                 double b = 0;  
+                pixelCoordSlicer[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
+                    + volumeCenter[0];
+                pixelCoordSlicer[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
+                    + volumeCenter[1];
+                pixelCoordSlicer[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
+                    + volumeCenter[2];
+                
                 for (int k = 0; k < diagonal; k += step) {
-                    pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
-                        + volumeCenter[0] + viewVec[0] * (k - (diagonal / 2));
-                    pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
-                        + volumeCenter[1] + viewVec[1] * (k - (diagonal / 2));
-                    pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
-                        + volumeCenter[2] + viewVec[2] * (k - (diagonal / 2));
+                    pixelCoord[0] = pixelCoordSlicer[0] + (k - (diagonal / 2)) * viewVec[0];
+                    pixelCoord[1] = pixelCoordSlicer[1] + (k - (diagonal / 2)) * viewVec[1];
+                    pixelCoord[2] = pixelCoordSlicer[2] + (k - (diagonal / 2)) * viewVec[2];
 
                     int val = getVoxelTriLinear(pixelCoord);
                     // Get color via compositing function
@@ -440,6 +449,11 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         //Specific pixelCoord for slicer
         double[] pixelCoordSlicer = new double[3];
         
+        int diagonal = (int) Math.ceil(
+                    Math.sqrt((volume.getDimX() * volume.getDimX()) + (volume.getDimY() * volume.getDimY()) +
+                                (volume.getDimZ() * volume.getDimZ())));
+        int step;
+        
         //From the widget we have intensity, radius and opacity, as well as color
         //So we get the data first from the widget
         //Looks like TransferFunction2DEditor.trangleWidget.baseIntensity refers to indensity
@@ -454,11 +468,9 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         double voxelOpacity;
         
         if (! interactiveMode) {
-            MIPSlices = Math.max(imageWidth, imageHeight);
-            MIPSliceStep = 1;
+            step = 1;
         } else {
-            MIPSlices = 20;
-            MIPSliceStep = 10;
+            step = 50;
         }
         
         //We start with normal slicer
@@ -474,10 +486,10 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 pixelCoordSlicer[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
                         + volumeCenter[2];
                 
-                for (int k = 0; k < MIPSlices; k ++) {
-                    pixelCoord[0] = pixelCoordSlicer[0] + k * MIPSliceStep * viewVec[0];
-                    pixelCoord[1] = pixelCoordSlicer[1] + k * MIPSliceStep * viewVec[1];
-                    pixelCoord[2] = pixelCoordSlicer[2] + k * MIPSliceStep * viewVec[2];
+                for (int k = 0; k < diagonal; k += step) {
+                    pixelCoord[0] = pixelCoordSlicer[0] + (k - (diagonal / 2)) * viewVec[0];
+                    pixelCoord[1] = pixelCoordSlicer[1] + (k - (diagonal / 2)) * viewVec[1];
+                    pixelCoord[2] = pixelCoordSlicer[2] + (k - (diagonal / 2)) * viewVec[2];
                     
                     int val = getVoxelTriLinear(pixelCoord);
 //                    int val = getVoxel2(pixelCoord);
@@ -681,7 +693,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         }
         
         if (Math.abs(voxelGradient.mag) == 0 && voxelIntensity == setIntensity) {
-            return 1;
+            return alpha;
         } else if (Math.abs(voxelGradient.mag) > 0 && 
                 voxelIntensity - radius * Math.abs(voxelGradient.mag) <= setIntensity && 
                 setIntensity <= voxelIntensity + radius * Math.abs(voxelGradient.mag)) {
@@ -726,7 +738,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 H[2] = viewVector[2] / Math.abs(viewVector[2]);  
 
                 newColor.a = color.a;
-//        	double temp = Ia + kspec * Math.pow(VectorMath.dotproduct(N, H), a);     //my version           
+//        	double temp = Ia + kspec * Math.pow(VectorMath.dotproduct(N, H), a);     //old version           
                 double temp = Ia + kspec * Math.pow(lnProduct, a); //working version
         	newColor.r = color.r * kdiff * lnProduct + temp;
         	newColor.g = color.g * kdiff * lnProduct + temp;
