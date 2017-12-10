@@ -748,7 +748,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         TFColor newColor = new TFColor();
 
         if (lDotN <= 0) {
-            return color;
+            return color; //In case the wrong direction
         }
         else {
                 newColor.a = color.a;
